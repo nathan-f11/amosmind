@@ -19,10 +19,6 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api ./apps/api
 WORKDIR /app/apps/api
 RUN npx prisma generate
-# deps 用了 --ignore-scripts；bcrypt 走 node-pre-gyp 预编译包，无需 gcc
-WORKDIR /app
-RUN pnpm rebuild bcrypt --filter @amosmind/api
-WORKDIR /app/apps/api
 RUN pnpm build
 RUN npx tsc prisma/seed.ts --module commonjs --esModuleInterop --target ES2022 --skipLibCheck --outDir prisma
 

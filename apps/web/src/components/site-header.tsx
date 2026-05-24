@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Tag } from 'antd';
 import { useAuth } from '@/context/auth-context';
+import { UserAvatarTrigger } from '@/components/user-avatar-trigger';
 import { cn } from '@/lib/utils';
 
 const nav = [
@@ -13,7 +15,7 @@ const nav = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   const navLinkClass = (href: string, compact?: boolean) =>
     cn(
@@ -44,10 +46,10 @@ export function SiteHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-3 text-sm tabular-nums">
-          <span className="rounded-full bg-zinc-800/80 px-3 py-1 text-zinc-300">
+          <Tag bordered={false} className="!m-0 !rounded-full !px-3 !py-0.5 !text-zinc-300">
             {user ? user.creditBalance.toLocaleString() : '—'}
-          </span>
-          <div className="size-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500" />
+          </Tag>
+          <UserAvatarTrigger user={user} loading={loading} />
         </div>
       </div>
       <nav className="flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">

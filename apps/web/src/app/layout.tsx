@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { AntdProvider } from '@/components/antd-provider';
 import { AuthProvider } from '@/context/auth-context';
 import { AuthGate } from '@/components/auth-gate';
 import { SiteHeader } from '@/components/site-header';
@@ -20,13 +21,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body className="min-h-dvh">
-        <AuthProvider>
-          <BackgroundGlow />
-          <SiteHeader />
-          <main className="relative z-10">
-            <AuthGate>{children}</AuthGate>
-          </main>
-        </AuthProvider>
+        <AntdProvider>
+          <AuthProvider>
+            <BackgroundGlow />
+            <SiteHeader />
+            <main className="relative z-10">
+              <AuthGate>{children}</AuthGate>
+            </main>
+          </AuthProvider>
+        </AntdProvider>
       </body>
     </html>
   );

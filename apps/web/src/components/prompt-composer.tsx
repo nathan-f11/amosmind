@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { Select } from 'antd';
 import { useAuth } from '@/context/auth-context';
+import { ImageUploadField } from '@/components/image-upload-field';
 import {
   createTask,
   createTaskWithUpload,
@@ -48,9 +50,14 @@ export function PromptComposer() {
   const [file, setFile] = useState<File | null>(null);
   const [activeTask, setActiveTask] = useState<GenerationTask | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const currentTab = TABS.find(t => t.id === tab)!;
+
+  const switchTab = (next: TabId) => {
+    setTab(next);
+    setActiveTask(null);
+    setFile(null);
+  };
 
   const pollTask = useCallback(
     async (taskId: string) => {
@@ -120,10 +127,7 @@ export function PromptComposer() {
           <button
             key={t.id}
             type="button"
-            onClick={() => {
-              setTab(t.id);
-              setActiveTask(null);
-            }}
+            onClick={() => switchTab(t.id)}
             className={cn(
               'shrink-0 whitespace-nowrap pb-3 transition-colors',
               tab === t.id
@@ -139,20 +143,15 @@ export function PromptComposer() {
       <div className="rounded-2xl border border-zinc-700/60 bg-zinc-900/40 p-4 shadow-xl backdrop-blur">
         {(tab === 'img2prompt' || tab === 'resize') && (
           <div className="mb-3">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={e => setFile(e.target.files?.[0] ?? null)}
+            <ImageUploadField
+              value={file}
+              onChange={setFile}
+              hint="点击上传图片"
+              className="[&_.ant-upload]:!bg-transparent"
             />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="rounded-lg border border-dashed border-zinc-600 px-4 py-6 text-sm text-zinc-400 w-full hover:border-zinc-500"
-            >
-              {file ? file.name : '点击上传图片'}
-            </button>
+            {!file && (
+              <p className="mt-2 text-sm text-zinc-500">{currentTab.placeholder}</p>
+            )}
           </div>
         )}
 
@@ -166,36 +165,26 @@ export function PromptComposer() {
           />
         )}
 
-        {tab !== 'text2img' && (
-          <p className="mb-2 text-sm text-zinc-500">{currentTab.placeholder}</p>
-        )}
-
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-3">
           <div className="flex flex-wrap gap-2">
             {tab === 'text2img' && (
-              <select
+              <Select
                 value={style}
-                onChange={e => setStyle(e.target.value)}
-                className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200"
-              >
-                {STYLES.map(s => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setStyle}
+                size="small"
+                options={STYLES.map(s => ({ value: s.value, label: s.label }))}
+                className="min-w-[7.5rem]"
+                popupMatchSelectWidth={false}
+              />
             )}
-            <select
+            <Select
               value={aspectRatio}
-              onChange={e => setAspectRatio(e.target.value)}
-              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200"
-            >
-              {RATIOS.map(r => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              onChange={setAspectRatio}
+              size="small"
+              options={RATIOS.map(r => ({ value: r, label: r }))}
+              className="min-w-[5rem]"
+              popupMatchSelectWidth={false}
+            />
           </div>
           <button
             type="button"

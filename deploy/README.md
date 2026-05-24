@@ -37,9 +37,7 @@ cd amosmind
 cp deploy/.env.prod.example deploy/.env.prod
 # 编辑 deploy/.env.prod：替换 YOUR_PUBLIC_IP、密码、MODEL_API_KEY
 
-# 首次需先在 GitHub Actions 跑通 Build Images，或本地 build 后 push 到 GHCR
-docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod pull
-docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod up -d
+docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
 
 # 首次：数据库迁移 + seed
 docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod exec api npx prisma migrate deploy
@@ -78,81 +76,53 @@ PUBLIC_IP=你的公网IP bash deploy/verify-staging.sh
 
 推送或 PR 到 `main` 时触发 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，通过 `dorny/paths-filter` **自动识别**变更范围：
 
-| 变更路径 | PR / push 触发的 Job | 仅 push `main` 额外 |
-|----------|----------------------|---------------------|
-| `apps/web/**` | CI Web（build + lint） | Build Web image → GHCR |
-| `apps/api/**` | CI API（prisma + build） | Build API image → GHCR |
-| `packages/shared/**` | Web + API 都跑 | 两个镜像都构建 |
-| `pnpm-lock.yaml`、Dockerfile 等 | + CI Infra | 视变更构建镜像 |
+| 变更路径 | 触发的 Job |
+|----------|------------|
+| `apps/web/**` | CI Web（build + lint） |
+| `apps/api/**` | CI API（prisma generate + build） |
+| `packages/shared/**` | Web + API 都跑 |
+| `pnpm-lock.yaml`、Dockerfile、workflow 等 | + CI Infra（compose config） |
 
-仅改 `docs/**` 时 job 会 skip，workflow 仍视为通过。镜像构建需在对应 CI job 成功后才执行。
+仅改 `docs/**` 时 job 会 skip，workflow 仍视为通过。
 
-### 构建镜像（push main 自动）
+**说明**：生产镜像在 **VPS 本地 `docker build`**（Dockerfile 已配置 npmmirror 国内源），不从 GHCR 拉取，避免跨境下载过慢。
 
-同一 workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 在 **push `main`** 且对应 CI 通过后，会构建并推送镜像到 GHCR：
-
-| 镜像 | 标签 |
-|------|------|
-| `ghcr.io/nathan-f11/amosmind-api` | `${{ github.sha }}`、`latest` |
-| `ghcr.io/nathan-f11/amosmind-web` | `${{ github.sha }}`、`latest` |
-
-Web 镜像构建时的 `NEXT_PUBLIC_API_URL` 优先级：
-
-1. Repository **Variable** `NEXT_PUBLIC_API_URL`（推荐 `http://你的公网IP/api`）
-2. 否则 Secret `DEPLOY_PUBLIC_IP` → `http://<IP>/api`
-3. 否则 `http://localhost/api`
-
-首次 push 后，在 GitHub **Packages** 中将对应包设为 **Public**，或在 VPS 配置 `GHCR_READ_TOKEN` 拉取私有包。
-
-### CD（手动，只拉镜像不编译）
+### CD（手动）
 
 GitHub → **Actions** → **Deploy Production** → **Run workflow**
 
 | 参数 | 说明 |
 |------|------|
 | `services` | `all` / `web` / `api` / `web,api` |
-| `image_tag` | `latest` 或某次构建的 **commit SHA**（回滚时填旧 SHA） |
+| `git_ref` | 默认 `origin/main`；回滚填旧 **commit SHA** |
 | `run_migrate` | 是否在部署后执行 `prisma migrate deploy` |
 
-部署流程：`git sync`（仅更新 compose/deploy）→ `docker compose pull` → `up -d`。
+部署流程：`git sync` → `docker compose build`（带层缓存）→ `up -d`。首次或全量构建可能需 **20–40 分钟**（2GB 轻量机），SSH 超时 90 分钟。
 
-**国内 VPS 注意**：从 `ghcr.io` 拉镜像可能很慢（数 GB、跨境带宽），首次部署或换 tag 时 **30–90 分钟** 都常见；workflow SSH 超时已设为 90 分钟。若仍超时，可在 VPS 上用 `screen` 手动执行 `deploy-remote.sh`，或后续改用腾讯云 TCR 作镜像源。
+### Repository Secrets（CD 必填）
 
-### Repository Secrets（CD）
-
-| Secret | 必填 | 说明 |
-|--------|------|------|
-| `DEPLOY_HOST` | 是 | VPS 公网 IP |
-| `DEPLOY_USER` | 是 | SSH 用户（如 `root`） |
-| `DEPLOY_SSH_KEY` | 是 | SSH 私钥 |
-| `DEPLOY_PATH` | 是 | 仓库路径（如 `/root/amosmind`） |
-| `DEPLOY_PUBLIC_IP` | 否 | 部署后跑验收脚本 |
-| `GHCR_READ_TOKEN` | 私有包时 | PAT，`read:packages`，用于 VPS `docker pull` |
-
-服务器 `deploy/.env.prod` 需包含（见 `.env.prod.example`）：
-
-```bash
-IMAGE_REGISTRY=ghcr.io/nathan-f11
-IMAGE_TAG=latest   # 手动部署时可 export IMAGE_TAG=<sha>
-```
+| Secret | 示例 |
+|--------|------|
+| `DEPLOY_HOST` | 公网 IP |
+| `DEPLOY_USER` | `root` |
+| `DEPLOY_SSH_KEY` | SSH 私钥 |
+| `DEPLOY_PATH` | `/root/amosmind` |
+| `DEPLOY_PUBLIC_IP` | 公网 IP（可选，跑验收脚本） |
 
 `.env.prod` 只保留在服务器，**不要**提交到 Git。
 
 ### 回滚
 
-1. 在 GitHub **Actions → CI** 历史 run 中找到要回退的 commit SHA（`Build API/Web image` job）。
-2. **Deploy Production** → `image_tag` 填该 SHA → Run workflow。
+**Deploy Production** → `git_ref` 填要回退的 commit SHA（如 `a1b2c3d4e5f6...`）→ Run workflow（会在 VPS 上 checkout 该版本并重新 build）。
 
 ### 服务器手动部署（与 CD 相同脚本）
 
 ```bash
 cd /root/amosmind
-export IMAGE_TAG=latest          # 或指定 SHA 回滚
-export GHCR_TOKEN=ghp_xxx        # 私有包时
 git pull origin main
 PUBLIC_IP=你的IP bash deploy/deploy-remote.sh all false
+# 回滚: GIT_REF=<旧commit SHA> bash deploy/deploy-remote.sh all false
 # 有 schema 变更: bash deploy/deploy-remote.sh all true
-# 只部署 web: IMAGE_TAG=abc1234 bash deploy/deploy-remote.sh web false
 ```
 
 ### Branch Protection 建议

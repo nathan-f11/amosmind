@@ -55,7 +55,9 @@ services:
           memory: 256M
 
   api:
-    image: ${IMAGE_REGISTRY:-ghcr.io/nathan-f11}/amosmind-api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     container_name: amosmind-api
     restart: unless-stopped
     environment:
@@ -96,7 +98,11 @@ services:
           memory: 512M
 
   web:
-    image: ${IMAGE_REGISTRY:-ghcr.io/nathan-f11}/amosmind-web:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: amosmind-web
     restart: unless-stopped
     environment:

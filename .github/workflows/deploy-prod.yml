@@ -13,10 +13,10 @@ on:
           - web
           - api
           - web,api
-      image_tag:
-        description: '镜像标签 (latest 或 commit SHA；回滚填旧 SHA)'
+      git_ref:
+        description: '部署的 Git 引用 (默认 origin/main；回滚填旧 commit SHA)'
         required: false
-        default: latest
+        default: origin/main
         type: string
       run_migrate:
         description: '执行 prisma migrate deploy'
@@ -45,9 +45,6 @@ jobs:
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"
-            export IMAGE_TAG="${{ inputs.image_tag }}"
-            export IMAGE_REGISTRY="ghcr.io/nathan-f11"
-            export GHCR_TOKEN="${{ secrets.GHCR_READ_TOKEN }}"
-            export GHCR_USER="${{ github.repository_owner }}"
+            export GIT_REF="${{ inputs.git_ref }}"
             export PUBLIC_IP="${{ secrets.DEPLOY_PUBLIC_IP }}"
             bash deploy/deploy-remote.sh "${{ inputs.services }}" "${{ inputs.run_migrate }}"

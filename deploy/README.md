@@ -114,7 +114,9 @@ GitHub → **Actions** → **Deploy Production** → **Run workflow**
 | `image_tag` | `latest` 或某次构建的 **commit SHA**（回滚时填旧 SHA） |
 | `run_migrate` | 是否在部署后执行 `prisma migrate deploy` |
 
-部署流程：`git sync`（仅更新 compose/deploy）→ `docker compose pull` → `up -d`（通常在数分钟内完成）。
+部署流程：`git sync`（仅更新 compose/deploy）→ `docker compose pull` → `up -d`。
+
+**国内 VPS 注意**：从 `ghcr.io` 拉镜像可能很慢（数 GB、跨境带宽），首次部署或换 tag 时 **30–90 分钟** 都常见；workflow SSH 超时已设为 90 分钟。若仍超时，可在 VPS 上用 `screen` 手动执行 `deploy-remote.sh`，或后续改用腾讯云 TCR 作镜像源。
 
 ### Repository Secrets（CD）
 

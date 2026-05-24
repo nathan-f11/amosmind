@@ -59,8 +59,12 @@ git fetch origin main
 git reset --hard "$GIT_REF"
 
 echo "[deploy-remote] pull images tag=$IMAGE_TAG registry=$IMAGE_REGISTRY: $SVC"
-# shellcheck disable=SC2086
-"${COMPOSE[@]}" pull $SVC
+echo "[deploy-remote] 提示: 国内 VPS 拉 GHCR 可能较慢，首次 pull 或需 30–60 分钟"
+for svc in $SVC; do
+  echo "[deploy-remote] $(date '+%H:%M:%S') pulling $svc ..."
+  "${COMPOSE[@]}" pull "$svc" --quiet
+  echo "[deploy-remote] $(date '+%H:%M:%S') pulled $svc"
+done
 
 echo "[deploy-remote] up --force-recreate: $SVC"
 # shellcheck disable=SC2086

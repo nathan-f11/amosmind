@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  pending
+  running
+  succeeded
+  failed
+}
+
+enum TaskType {
+  text2img
+  img2prompt
+  resize
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  passwordHash  String
+  creditBalance Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  projects      Project[]
+  tasks         GenerationTask[]
+  ledger        CreditLedger[]
+}
+
+model Project {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  coverUrl  String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  tasks     GenerationTask[]
+
+  @@index([userId])
+}
+
+model GenerationTask {
+  id             String     @id @default(uuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  type           TaskType
+  status         TaskStatus @default(pending)
+  prompt         String?
+  resultUrl      String?
+  resultText     String?
+  error          String?
+  params         Json?
+  idempotencyKey String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  assets         Asset[]
+  ledger         CreditLedger[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([projectId])
+  @@index([status])
+}
+
+model CreditLedger {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String
+  taskId    String?
+  task      GenerationTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Asset {
+  id        String         @id @default(uuid())
+  taskId    String
+  task      GenerationTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  objectKey String
+  url       String
+  mimeType  String
+  createdAt DateTime       @default(now())
+
+  @@index([taskId])
+}

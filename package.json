@@ -1,0 +1,22 @@
+{
+  "name": "amosmind",
+  "private": true,
+  "scripts": {
+    "kill-ports": "lsof -ti :3000 | xargs kill -9 2>/dev/null; lsof -ti :3001 | xargs kill -9 2>/dev/null; echo done",
+    "dev": "pnpm --filter @amosmind/api --filter @amosmind/web --parallel dev",
+    "dev:api": "pnpm --filter @amosmind/api dev",
+    "dev:web": "pnpm --filter @amosmind/web dev",
+    "build": "pnpm run -r build",
+    "db:migrate": "pnpm --filter @amosmind/api db:migrate",
+    "db:migrate:deploy": "pnpm --filter @amosmind/api db:migrate:deploy",
+    "db:seed": "pnpm --filter @amosmind/api db:seed",
+    "db:seed:prod": "pnpm --filter @amosmind/api db:seed:prod",
+    "docker:prod:config": "docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod config",
+    "docker:prod:up": "docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod up -d --build",
+    "db:studio": "pnpm --filter @amosmind/api db:studio"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.14.4"
+}

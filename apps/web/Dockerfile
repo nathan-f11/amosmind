@@ -1,5 +1,7 @@
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.14.4 --activate
+RUN npm config set registry https://registry.npmmirror.com \
+  && corepack enable \
+  && corepack prepare pnpm@9.14.4 --activate
 WORKDIR /app
 
 FROM base AS deps

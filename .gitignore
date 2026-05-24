@@ -10,6 +10,7 @@ dist
 apps/api/.env
 apps/web/.env.local
 deploy/.env.prod
+deploy/.env.prod.local
 *.log
 .DS_Store
 coverage

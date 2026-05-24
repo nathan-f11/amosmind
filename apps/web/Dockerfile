@@ -1,5 +1,6 @@
 FROM node:20-alpine AS base
-RUN npm config set registry https://registry.npmmirror.com \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+  && npm config set registry https://registry.npmmirror.com \
   && corepack enable \
   && corepack prepare pnpm@9.14.4 --activate
 WORKDIR /app

@@ -1,5 +1,7 @@
 FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
+# 国内 VPS 构建时 Alpine 官方源极慢，改用阿里云镜像
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+  && apk add --no-cache libc6-compat
 RUN npm config set registry https://registry.npmmirror.com \
   && corepack enable \
   && corepack prepare pnpm@9.14.4 --activate
@@ -17,8 +19,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api ./apps/api
 WORKDIR /app/apps/api
 RUN npx prisma generate
-# deps 阶段用了 --ignore-scripts，需在此编译 bcrypt 等原生模块
-RUN apk add --no-cache python3 make g++
+# deps 用了 --ignore-scripts；bcrypt 走 node-pre-gyp 预编译包，无需 gcc
 WORKDIR /app
 RUN pnpm rebuild bcrypt --filter @amosmind/api
 WORKDIR /app/apps/api

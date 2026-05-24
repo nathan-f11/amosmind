@@ -21,6 +21,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
 
+RUN mkdir -p apps/web/public
 RUN pnpm --filter @amosmind/web build
 
 FROM base AS runner

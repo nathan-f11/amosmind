@@ -109,13 +109,13 @@ export function PromptComposer() {
 
   return (
     <div className="w-full max-w-3xl">
-      <div className="mb-8 flex flex-col items-center text-center">
-        <h1 className="text-balance text-3xl font-medium text-white md:text-4xl">
+      <div className="mb-4 flex flex-col items-center text-center md:mb-8">
+        <h1 className="text-balance text-2xl font-medium text-white md:text-4xl">
           : ) 你的设计提效伙伴
         </h1>
       </div>
 
-      <div className="mb-3 flex gap-6 border-b border-zinc-800 text-sm">
+      <div className="mb-6 flex gap-4 overflow-x-auto border-b border-zinc-800 text-sm [-ms-overflow-style:none] [scrollbar-width:none] md:mb-3 md:gap-6 [&::-webkit-scrollbar]:hidden">
         {TABS.map(t => (
           <button
             key={t.id}
@@ -125,7 +125,7 @@ export function PromptComposer() {
               setActiveTask(null);
             }}
             className={cn(
-              'pb-3 transition-colors',
+              'shrink-0 whitespace-nowrap pb-3 transition-colors',
               tab === t.id
                 ? 'border-b-2 border-white text-white'
                 : 'text-zinc-500 hover:text-zinc-300',

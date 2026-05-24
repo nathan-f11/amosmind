@@ -69,3 +69,53 @@ docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod down
 ```bash
 PUBLIC_IP=你的公网IP bash deploy/verify-staging.sh
 ```
+
+## 8. CI / CD（GitHub Actions）
+
+### CI（自动）
+
+推送或 PR 到 `main` 时触发 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，通过 `dorny/paths-filter` **自动识别**变更范围：
+
+| 变更路径 | 触发的 Job |
+|----------|------------|
+| `apps/web/**` | CI Web（build + lint） |
+| `apps/api/**` | CI API（prisma generate + build） |
+| `packages/shared/**` | Web + API 都跑 |
+| `pnpm-lock.yaml`、Dockerfile、workflow 等 | Web + API + CI Infra（compose config） |
+
+仅改 `docs/**` 时构建 job 会 skip，workflow 仍视为通过。
+
+### CD（手动）
+
+GitHub → **Actions** → **Deploy Production** → **Run workflow**
+
+| 参数 | 说明 |
+|------|------|
+| `services` | `all` / `web` / `api` / `web,api` |
+| `run_migrate` | 是否在部署后执行 `prisma migrate deploy` |
+
+### Repository Secrets（CD 必填）
+
+| Secret | 示例 |
+|--------|------|
+| `DEPLOY_HOST` | `111.229.146.223` |
+| `DEPLOY_USER` | SSH 用户名 |
+| `DEPLOY_SSH_KEY` | 部署私钥 |
+| `DEPLOY_PATH` | `/home/ubuntu/amosmind` |
+| `DEPLOY_PUBLIC_IP` | 公网 IP（部署后跑验收脚本） |
+
+`.env.prod` 只保留在服务器，**不要**提交到 Git。
+
+### 服务器手动部署（与 CD 相同脚本）
+
+```bash
+cd ~/amosmind
+git pull origin main
+PUBLIC_IP=111.229.146.223 bash deploy/deploy-remote.sh all false
+# 有 schema 变更: bash deploy/deploy-remote.sh all true
+# 只部署 web: bash deploy/deploy-remote.sh web false
+```
+
+### Branch Protection 建议
+
+`main` 分支启用：**Require status checks to pass** → 勾选 `CI Web` / `CI API`（或整个 CI workflow）。

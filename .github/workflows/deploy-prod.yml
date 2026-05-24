@@ -1,0 +1,44 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: '部署服务 (all | web | api | web,api)'
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - web
+          - api
+          - web,api
+      run_migrate:
+        description: '执行 prisma migrate deploy'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          command_timeout: 45m
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            export PUBLIC_IP="${{ secrets.DEPLOY_PUBLIC_IP }}"
+            bash deploy/deploy-remote.sh "${{ inputs.services }}" "${{ inputs.run_migrate }}"

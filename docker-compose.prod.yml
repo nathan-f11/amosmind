@@ -80,6 +80,7 @@ services:
       MODEL_API_KEY: ${MODEL_API_KEY:-}
       MODEL_API_URL: ${MODEL_API_URL:-https://api.siliconflow.cn/v1}
       MODEL_TEXT2IMG: ${MODEL_TEXT2IMG:-Qwen/Qwen-Image}
+      MODEL_VISION: ${MODEL_VISION:-Qwen/Qwen3-VL-8B-Instruct}
       GENERATION_COST: ${GENERATION_COST:-10}
       SEED_EMAIL: ${SEED_EMAIL:-dev@amosmind.local}
       SEED_PASSWORD: ${SEED_PASSWORD}

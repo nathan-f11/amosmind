@@ -125,28 +125,55 @@ export class ModelProviderService {
   private async siliconflowDescribe(buffer: Buffer): Promise<string> {
     const apiKey = this.config.get<string>('MODEL_API_KEY');
     const baseUrl = this.config.get<string>('MODEL_API_URL', 'https://api.siliconflow.cn/v1');
+    const model = this.config.get<string>('MODEL_VISION', 'Qwen/Qwen3-VL-8B-Instruct');
     if (!apiKey) return this.mockDescribe(buffer);
-    const b64 = buffer.toString('base64');
-    const { data } = await firstValueFrom(
-      this.http.post<{ choices?: { message?: { content?: string } }[] }>(
-        `${baseUrl}/chat/completions`,
-        {
-          model: 'Qwen/Qwen2-VL-7B-Instruct',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: 'Describe this image as an English AI image generation prompt, concise.' },
-                { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
-              ],
-            },
-          ],
-          max_tokens: 300,
-        },
-        { headers: { Authorization: `Bearer ${apiKey}` } },
-      ),
-    );
-    return data.choices?.[0]?.message?.content?.trim() ?? 'unable to describe image';
+
+    const { buffer: visionBuffer, mimeType } = await this.prepareVisionImage(buffer);
+    const b64 = visionBuffer.toString('base64');
+
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<{ choices?: { message?: { content?: string } }[] }>(
+          `${baseUrl}/chat/completions`,
+          {
+            model,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Describe this image as an English AI image generation prompt, concise.',
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: { url: `data:${mimeType};base64,${b64}` },
+                  },
+                ],
+              },
+            ],
+            max_tokens: 300,
+          },
+          { headers: { Authorization: `Bearer ${apiKey}` } },
+        ),
+      );
+      return data.choices?.[0]?.message?.content?.trim() ?? 'unable to describe image';
+    } catch (err: unknown) {
+      const body = (err as { response?: { data?: { message?: string; code?: number } } })?.response?.data;
+      const detail = body?.message ?? (err instanceof Error ? err.message : 'unknown');
+      this.logger.error({ event: 'siliconflowDescribeFailed', model, detail, code: body?.code });
+      throw new Error(`SiliconFlow vision (${model}): ${detail}`);
+    }
+  }
+
+  /** 压缩并统一格式，避免 base64 过大或 MIME 与内容不符导致 400 */
+  private async prepareVisionImage(buffer: Buffer): Promise<{ buffer: Buffer; mimeType: string }> {
+    const prepared = await sharp(buffer)
+      .rotate()
+      .resize(1536, 1536, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return { buffer: prepared, mimeType: 'image/jpeg' };
   }
 
   private async dashscopeText2Img(params: Text2ImgParams): Promise<Text2ImgResult> {

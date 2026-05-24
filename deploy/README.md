@@ -37,7 +37,9 @@ cd amosmind
 cp deploy/.env.prod.example deploy/.env.prod
 # 编辑 deploy/.env.prod：替换 YOUR_PUBLIC_IP、密码、MODEL_API_KEY
 
-docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
+# 首次需先在 GitHub Actions 跑通 Build Images，或本地 build 后 push 到 GHCR
+docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod pull
+docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod up -d
 
 # 首次：数据库迁移 + seed
 docker compose -f docker-compose.prod.yml --env-file deploy/.env.prod exec api npx prisma migrate deploy
@@ -85,35 +87,70 @@ PUBLIC_IP=你的公网IP bash deploy/verify-staging.sh
 
 仅改 `docs/**` 时构建 job 会 skip，workflow 仍视为通过。
 
-### CD（手动）
+### Build Images（push main 自动）
+
+[`.github/workflows/build-images.yml`](../.github/workflows/build-images.yml) 在 **push `main`** 时构建并推送镜像到 GHCR：
+
+| 镜像 | 标签 |
+|------|------|
+| `ghcr.io/nathan-f11/amosmind-api` | `${{ github.sha }}`、`latest` |
+| `ghcr.io/nathan-f11/amosmind-web` | `${{ github.sha }}`、`latest` |
+
+Web 镜像构建时的 `NEXT_PUBLIC_API_URL` 优先级：
+
+1. Repository **Variable** `NEXT_PUBLIC_API_URL`（推荐 `http://你的公网IP/api`）
+2. 否则 Secret `DEPLOY_PUBLIC_IP` → `http://<IP>/api`
+3. 否则 `http://localhost/api`
+
+首次 push 后，在 GitHub **Packages** 中将对应包设为 **Public**，或在 VPS 配置 `GHCR_READ_TOKEN` 拉取私有包。
+
+### CD（手动，只拉镜像不编译）
 
 GitHub → **Actions** → **Deploy Production** → **Run workflow**
 
 | 参数 | 说明 |
 |------|------|
 | `services` | `all` / `web` / `api` / `web,api` |
+| `image_tag` | `latest` 或某次构建的 **commit SHA**（回滚时填旧 SHA） |
 | `run_migrate` | 是否在部署后执行 `prisma migrate deploy` |
 
-### Repository Secrets（CD 必填）
+部署流程：`git sync`（仅更新 compose/deploy）→ `docker compose pull` → `up -d`（通常在数分钟内完成）。
 
-| Secret | 示例 |
-|--------|------|
-| `DEPLOY_HOST` | `111.229.146.223` |
-| `DEPLOY_USER` | SSH 用户名 |
-| `DEPLOY_SSH_KEY` | 部署私钥 |
-| `DEPLOY_PATH` | `/home/ubuntu/amosmind` |
-| `DEPLOY_PUBLIC_IP` | 公网 IP（部署后跑验收脚本） |
+### Repository Secrets（CD）
+
+| Secret | 必填 | 说明 |
+|--------|------|------|
+| `DEPLOY_HOST` | 是 | VPS 公网 IP |
+| `DEPLOY_USER` | 是 | SSH 用户（如 `root`） |
+| `DEPLOY_SSH_KEY` | 是 | SSH 私钥 |
+| `DEPLOY_PATH` | 是 | 仓库路径（如 `/root/amosmind`） |
+| `DEPLOY_PUBLIC_IP` | 否 | 部署后跑验收脚本 |
+| `GHCR_READ_TOKEN` | 私有包时 | PAT，`read:packages`，用于 VPS `docker pull` |
+
+服务器 `deploy/.env.prod` 需包含（见 `.env.prod.example`）：
+
+```bash
+IMAGE_REGISTRY=ghcr.io/nathan-f11
+IMAGE_TAG=latest   # 手动部署时可 export IMAGE_TAG=<sha>
+```
 
 `.env.prod` 只保留在服务器，**不要**提交到 Git。
+
+### 回滚
+
+1. 在 GitHub **Actions → Build Images** 历史 run 中找到要回退的 commit SHA。
+2. **Deploy Production** → `image_tag` 填该 SHA → Run workflow。
 
 ### 服务器手动部署（与 CD 相同脚本）
 
 ```bash
-cd ~/amosmind
+cd /root/amosmind
+export IMAGE_TAG=latest          # 或指定 SHA 回滚
+export GHCR_TOKEN=ghp_xxx        # 私有包时
 git pull origin main
-PUBLIC_IP=111.229.146.223 bash deploy/deploy-remote.sh all false
+PUBLIC_IP=你的IP bash deploy/deploy-remote.sh all false
 # 有 schema 变更: bash deploy/deploy-remote.sh all true
-# 只部署 web: bash deploy/deploy-remote.sh web false
+# 只部署 web: IMAGE_TAG=abc1234 bash deploy/deploy-remote.sh web false
 ```
 
 ### Branch Protection 建议

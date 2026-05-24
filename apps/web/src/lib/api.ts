@@ -26,6 +26,26 @@ export interface ProjectItem {
   tasks: { resultUrl: string | null }[];
 }
 
+export interface CreditLedgerTask {
+  type: string;
+  status: string;
+  prompt?: string | null;
+}
+
+export interface CreditLedgerItem {
+  id: string;
+  amount: number;
+  reason: string;
+  taskId?: string | null;
+  createdAt: string;
+  task?: CreditLedgerTask;
+}
+
+export interface CreditLedgerResponse {
+  items: CreditLedgerItem[];
+  nextCursor: string | null;
+}
+
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('amos_token');
@@ -70,6 +90,14 @@ export async function login(email: string, password: string) {
 
 export async function getMe() {
   return request<UserMe>('/users/me');
+}
+
+export async function listCreditLedger(options?: { limit?: number; cursor?: string }) {
+  const params = new URLSearchParams();
+  if (options?.limit != null) params.set('limit', String(options.limit));
+  if (options?.cursor) params.set('cursor', options.cursor);
+  const q = params.toString();
+  return request<CreditLedgerResponse>(`/users/me/credits/ledger${q ? `?${q}` : ''}`);
 }
 
 export async function createTask(body: {

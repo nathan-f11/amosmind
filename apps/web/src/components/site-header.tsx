@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const nav = [
   { href: '/', label: '首页' },
   { href: '/projects', label: '我的项目' },
+  { href: '/credits', label: '积分流水' },
   { href: '/lab', label: '实验室' },
 ];
 

@@ -33,6 +33,39 @@ Response:
 
 当前用户与积分余额。
 
+### `GET /users/me/credits/ledger`
+
+当前用户积分流水（按时间倒序）。
+
+Query:
+
+- `limit`（可选，默认 20，最大 100）
+- `cursor`（可选，上一页最后一条 `id`，用于加载更多）
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "amount": -10,
+      "reason": "generation",
+      "taskId": "uuid",
+      "createdAt": "2026-05-24T09:00:00.000Z",
+      "task": {
+        "type": "text2img",
+        "status": "succeeded",
+        "prompt": "a cat in space"
+      }
+    }
+  ],
+  "nextCursor": "uuid-or-null"
+}
+```
+
+`amount` 负数表示扣费；`reason` 当前主要为 `generation`（生成任务扣费）。
+
 ### `POST /tasks`
 
 Body:

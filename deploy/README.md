@@ -78,18 +78,18 @@ PUBLIC_IP=你的公网IP bash deploy/verify-staging.sh
 
 推送或 PR 到 `main` 时触发 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)，通过 `dorny/paths-filter` **自动识别**变更范围：
 
-| 变更路径 | 触发的 Job |
-|----------|------------|
-| `apps/web/**` | CI Web（build + lint） |
-| `apps/api/**` | CI API（prisma generate + build） |
-| `packages/shared/**` | Web + API 都跑 |
-| `pnpm-lock.yaml`、Dockerfile、workflow 等 | Web + API + CI Infra（compose config） |
+| 变更路径 | PR / push 触发的 Job | 仅 push `main` 额外 |
+|----------|----------------------|---------------------|
+| `apps/web/**` | CI Web（build + lint） | Build Web image → GHCR |
+| `apps/api/**` | CI API（prisma + build） | Build API image → GHCR |
+| `packages/shared/**` | Web + API 都跑 | 两个镜像都构建 |
+| `pnpm-lock.yaml`、Dockerfile 等 | + CI Infra | 视变更构建镜像 |
 
-仅改 `docs/**` 时构建 job 会 skip，workflow 仍视为通过。
+仅改 `docs/**` 时 job 会 skip，workflow 仍视为通过。镜像构建需在对应 CI job 成功后才执行。
 
-### Build Images（push main 自动）
+### 构建镜像（push main 自动）
 
-[`.github/workflows/build-images.yml`](../.github/workflows/build-images.yml) 在 **push `main`** 时构建并推送镜像到 GHCR：
+同一 workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 在 **push `main`** 且对应 CI 通过后，会构建并推送镜像到 GHCR：
 
 | 镜像 | 标签 |
 |------|------|
@@ -138,7 +138,7 @@ IMAGE_TAG=latest   # 手动部署时可 export IMAGE_TAG=<sha>
 
 ### 回滚
 
-1. 在 GitHub **Actions → Build Images** 历史 run 中找到要回退的 commit SHA。
+1. 在 GitHub **Actions → CI** 历史 run 中找到要回退的 commit SHA（`Build API/Web image` job）。
 2. **Deploy Production** → `image_tag` 填该 SHA → Run workflow。
 
 ### 服务器手动部署（与 CD 相同脚本）
